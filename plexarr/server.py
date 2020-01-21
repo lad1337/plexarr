@@ -50,7 +50,7 @@ async def search(q: str = ''):
 
 @app.get("/pubapi_v2.php")
 async def rarbg_fake(r: Request, mode: str = None, imdbId: str = None, search_string: str = None,
-                     get_token: str = None):
+                     get_token: str = None, search_imdb: str = None):
     if get_token is not None:
         return {"token": "1337"}
     elif mode == 'list':
@@ -58,8 +58,10 @@ async def rarbg_fake(r: Request, mode: str = None, imdbId: str = None, search_st
         zeta = account.resource('zeta').connect()
         movies = zeta.library.recentlyAdded()
     else:
-        title = get_name_from_radarr(search_string)
-        if title is None:
+        title = ''
+        if search_imdb is not None:
+            title = get_name_from_radarr(search_imdb)
+        elif search_string:
             title = search_string
         logger.info(f"searching plex for: {title}")
 
