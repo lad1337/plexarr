@@ -1,18 +1,20 @@
 import os
+import logging
 
 from fastapi import FastAPI
 from starlette.requests import Request
 from plexapi.myplex import MyPlexAccount
 from plexapi.exceptions import NotFound
 from plexapi.video import Movie
-from requests import request
 
 from plexarr.convert import as_torrents
+from plexarr.utils import get_name_from_radarr
 
 app = FastAPI()
 account = MyPlexAccount(os.getenv('PLEX_USERNAME'), os.getenv('PLEX_PASSWORD'))
-radarr_url = "{}/api".format(getenv('RADARR_URL'), )
-radarr_api_key = getenv('RADARR_URL')
+
+logger = logging.getLogger('plexarr')
+logger.setLevel(logging.INFO)
 
 
 @app.get("/")
@@ -56,10 +58,13 @@ async def rarbg_fake(r: Request, mode: str = None, imdbId: str = None, search_st
         zeta = account.resource('zeta').connect()
         movies = zeta.library.recentlyAdded()
     else:
-        import pdb; pdb.set_trace()
-        request.get()
+        title = get_name_from_radarr(search_string)
+        if title is None:
+            title = search_string
+        logger.info(f"searching plex for: {title}")
+
         zeta = account.resource('zeta').connect()
-        movies = zeta.search(search_string)
+        movies = zeta.search(title)
 
     torrents = []
     for m in movies:

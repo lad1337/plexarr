@@ -22,7 +22,7 @@ from plexapi.media import Media
 
 
 def generate_scene_title(movie: Movie, media: Media):
-    return f"{movie.title} {movie.year} {media.videoResolution} Plexarr"
+    return f"{movie.title} {movie.year} {media.videoResolution}p Plexarr".replace(' ', '.')
 
 
 def as_torrents(movie: Movie):
