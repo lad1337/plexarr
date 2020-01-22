@@ -22,16 +22,20 @@ from plexapi.media import Media
 
 
 def generate_scene_title(movie: Movie, media: Media):
-    return f"{movie.title} {movie.year} {media.videoResolution}p Plexarr".replace(' ', '.')
+    return f"{movie.title} {movie.year} {media.videoResolution}p Plexarr[{movie._server.friendlyName}]".replace(' ', '.')
 
 
 def as_torrents(movie: Movie):
     for media in movie.media:
+        url = "\n".join([movie._server.url(f"{p.key}?download=1") for p in media.parts])
         yield dict(
             title=generate_scene_title(movie, media),
             category="Movies/x264",
-            download="\n".join([movie._server.url(f"{p.key}?download=1") for p in media.parts]),
+            # radarr extracts the info hash from the magnet link ... -.-
+            download=url,
             seeders=100,
-            leachers=13,
-            size=sum(p.size for p in media.parts)
+            leechers=100,
+            size=sum(p.size for p in media.parts),
+            pubdate=movie.updatedAt.isoformat(),
+            real_url=url,
         )

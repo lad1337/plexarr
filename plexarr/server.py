@@ -1,8 +1,11 @@
+import io
 import os
 import logging
+from uuid import uuid4
 
 from fastapi import FastAPI
 from starlette.requests import Request
+from starlette.responses import StreamingResponse
 from plexapi.myplex import MyPlexAccount
 from plexapi.exceptions import NotFound
 from plexapi.video import Movie
@@ -47,6 +50,16 @@ async def search(q: str = ''):
         ])
     return results
 
+TORRENTS = {}
+
+
+@app.get("/download/{uid}")
+async def download(uid: str):
+    content = TORRENTS[uid]
+    return StreamingResponse(
+        io.BytesIO(bytes(content, encoding='ascii')),
+        media_type="text")
+
 
 @app.get("/pubapi_v2.php")
 async def rarbg_fake(r: Request, mode: str = None, imdbId: str = None, search_string: str = None,
@@ -72,6 +85,10 @@ async def rarbg_fake(r: Request, mode: str = None, imdbId: str = None, search_st
     for m in movies:
         if isinstance(m, Movie):
             torrents.extend(as_torrents(m))
+    for t in torrents:
+        uid = uuid4().hex
+        TORRENTS[uid] = t['real_url']
+        t['download'] = f"http://<my-ip>:8000/download/{uid}"
 
     return dict(
         torrent_results=torrents
