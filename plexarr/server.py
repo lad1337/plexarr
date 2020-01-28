@@ -14,7 +14,7 @@ import aria2p
 
 from plexarr.convert import as_torrents
 from plexarr.utils import get_name_from_radarr
-from plexarr.utils import json_rpc_response
+
 
 app = FastAPI()
 account = MyPlexAccount(os.getenv("PLEX_USERNAME"), os.getenv("PLEX_PASSWORD"))
@@ -36,38 +36,9 @@ async def servers():
     return [s.name for s in servers]
 
 
-@app.get("/api/search")
-async def search(q: str = ""):
-    results = []
-    if not q:
-        return results
-
-    for server in [s for s in account.resources() if "server" in s.provides]:
-        try:
-            con = server.connect(timeout=3)
-        except NotFound:
-            continue
-        results.extend(
-            [
-                {"title": i.title, "type": i.__class__.__name__, "server": server.name}
-                for i in con.search(q)
-            ]
-        )
-    return results
-
-
-TORRENTS = {}
-
-
-@app.get("/download/{uid}")
-async def download(uid: str):
-    content = TORRENTS[uid]
-    return StreamingResponse(io.BytesIO(bytes(content, encoding="ascii")), media_type="text")
-
-
 @app.post("/json")
 @app.post("/api")
-async def deluge_api(r: Request, item: BaseModel):
+async def hadouken_api(r: Request, item: BaseModel):
     request_body = await r.json()
     method = request_body["method"]
     logger.info(request_body)
@@ -83,9 +54,9 @@ async def deluge_api(r: Request, item: BaseModel):
         type_, url, data = request_body["params"]
         url = furl(url)
         logger.info(url.query.params)
-        aria2.add_uris(uris=[url.query.params["ws"]])
-
-        response = "asdasdasda"
+        download = aria2.add_uris(uris=[url.query.params["ws"]])
+        logger.info(f"Added download {download.gid}")
+        response = str(download.gid)
     else:
         response = {}
 
@@ -97,7 +68,7 @@ async def deluge_api(r: Request, item: BaseModel):
 
 
 @app.get("/pubapi_v2.php")
-async def rarbg_fake(
+async def search(
     r: Request,
     mode: str = None,
     imdbId: str = None,
@@ -105,6 +76,7 @@ async def rarbg_fake(
     get_token: str = None,
     search_imdb: str = None,
 ):
+    """rarbg_fake"""
     if get_token is not None:
         return {"token": "1337"}
     elif mode == "list":

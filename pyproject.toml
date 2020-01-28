@@ -7,12 +7,12 @@ authors = ["Dennis Lutter <lad1337@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.8"
 fastapi = {extras = ["all"], version = "^0.46.0"}
-rfeed = "^1.1.1"
-plexapi = "^3.3.0"
 flake8 = "^3.7.9"
 furl = "^2.1.0"
 torf = "^2.1.0"
 aria2p = "^0.7.1"
+plexapi = "^3.3.0"
+tqdm = "^4.42.0"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"

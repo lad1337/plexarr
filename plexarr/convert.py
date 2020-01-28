@@ -37,19 +37,16 @@ def generate_scene_title(movie: Movie, media: Media) -> str:
 
 def generate_magnet_link(title: str, size: int, urls: List[str]) -> str:
     magnet = furl(scheme="magnet")
-    magnet.add(
-        query_params={"xt": "urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", "ws": urls[0]}
-    )
-    return unquote(magnet.url)
-
-    t = Torrent(name=title, httpseeds=urls)
-    t.pieces = 1
-    t.metainfo["info"]["pieces"] = b""
+    magnet.add(query_params={"xt": "urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", "ws": urls})
+    return magnet.url.replace("%3A", ":", 2)
 
 
 def as_torrents(movie: Movie, token: str) -> dict:
     for media in movie.media:
-        urls = [movie._server.url(f"{p.key}?download=1&X-Plex-Token={token}") for p in media.parts]
+        urls = [
+            furl(movie._server.url(f"{p.key}?download=1&X-Plex-Token={token}")).url
+            for p in media.parts
+        ]
         title = generate_scene_title(movie, media)
         size = sum(p.size for p in media.parts)
         magnet = generate_magnet_link(title, size, urls)
