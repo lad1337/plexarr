@@ -1,28 +1,33 @@
-import io
 import os
 import logging
+import typing as t
 
 from fastapi import FastAPI
 from furl import furl
 from starlette.requests import Request
-from starlette.responses import StreamingResponse
 from plexapi.myplex import MyPlexAccount
-from plexapi.exceptions import NotFound
+from plexapi.exceptions import BadRequest
 from plexapi.video import Movie
-from pydantic import BaseModel
 import aria2p
 
-from plexarr.convert import as_torrents
 from plexarr.utils import get_name_from_radarr
+from plexarr.models import AddTorrent
+from plexarr.models import SearchResult
+from plexarr.models import DownloadItem
 
 
 app = FastAPI()
-account = MyPlexAccount(os.getenv("PLEX_USERNAME"), os.getenv("PLEX_PASSWORD"))
+logger = logging.getLogger("plexarr")
+logger.setLevel(logging.INFO)
+
+try:
+    account = MyPlexAccount(os.getenv("PLEX_USERNAME"), os.getenv("PLEX_PASSWORD"))
+except BadRequest:
+    account = None
+    logger.warning("Could not login to PLEX")
 aria2 = aria2p.API(
     aria2p.Client(host=os.getenv("ARIA2_RPC", "http://localhost"), port=6800, secret="")
 )
-logger = logging.getLogger("plexarr")
-logger.setLevel(logging.INFO)
 
 
 @app.get("/")
@@ -36,12 +41,10 @@ async def servers():
     return [s.name for s in servers]
 
 
-@app.post("/json")
 @app.post("/api")
-async def hadouken_api(r: Request, item: BaseModel):
-    request_body = await r.json()
-    method = request_body["method"]
-    logger.info(request_body)
+async def downloader(action: AddTorrent) -> dict:
+    method = action.method
+    logger.info(action)
     if method == "core.getSystemInfo":
         response = {
             "Commitish": "e51736c",
@@ -49,9 +52,11 @@ async def hadouken_api(r: Request, item: BaseModel):
             "Versions": {"libtorrent": "1.0.5.0", "hadouken": "5.1.1"},
         }
     elif method == "webui.list":
-        response = {"torrents": aria2.get_downloads()}
+        downloads = aria2.get_downloads()
+        logger.info(f"aria2 downloads: {downloads}")
+        response = {"torrents": [DownloadItem.from_airi2(d) for d in downloads]}
     elif method == "webui.addTorrent":
-        type_, url, data = request_body["params"]
+        type_, url, data = action.params
         url = furl(url)
         logger.info(url.query.params)
         download = aria2.add_uris(uris=[url.query.params["ws"]])
@@ -62,7 +67,7 @@ async def hadouken_api(r: Request, item: BaseModel):
 
     return {
         "result": response,
-        "id": request_body["id"],
+        "id": action.id,
         "jsonrpc": "2.0",
     }
 
@@ -97,6 +102,7 @@ async def search(
     torrents = []
     for m in movies:
         if isinstance(m, Movie):
-            torrents.extend(as_torrents(m, token=account.authenticationToken))
+            for media in m.media:
+                torrents.append(SearchResult.from_plex(m, media, account.authenticationToken))
 
     return dict(torrent_results=torrents)
