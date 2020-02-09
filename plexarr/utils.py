@@ -3,8 +3,11 @@ from functools import wraps
 from hashlib import sha1
 from urllib.parse import unquote
 from typing import List
+from uuid import uuid4
 
 
+from plexapi.server import PlexServer
+from plexapi.myplex import MyPlexAccount
 from plexapi.video import Movie
 from plexapi.media import Media
 from furl import furl
@@ -30,6 +33,11 @@ def generate_scene_title(movie: Movie, media: Media) -> str:
 
 
 def generate_magnet_link(title: str, size: int, urls: List[str]) -> str:
+    btih = sha1(f"{title} {size}".encode("UTF-8")).hexdigest()
     magnet = furl(scheme="magnet")
-    magnet.add(query_params={"xt": "urn:btih:c12fe1c06bba254a9dc9f519b335aa7c1367a88a", "ws": urls})
+    magnet.add(query_params={"xt": f"urn:btih:{btih}", "ws": urls})
     return magnet.url.replace("%3A", ":", 2)
+
+
+def get_servers_for_account(account: MyPlexAccount) -> PlexServer:
+    return [s for s in account.resources() if "server" in s.provides]

@@ -1,5 +1,6 @@
 from pathlib import Path
 import typing as t
+import logging
 
 from aria2p.downloads import Download
 from furl import furl
@@ -10,6 +11,8 @@ from plexapi.media import Media
 from plexarr.utils import generate_scene_title
 from plexarr.utils import generate_magnet_link
 
+logger = logging.getLogger(__name__)
+
 
 def to_camel(string: str) -> str:
     return "".join(word.capitalize() for word in string.split("_"))
@@ -18,7 +21,7 @@ def to_camel(string: str) -> str:
 class AddTorrent(BaseModel):
     id: t.Union[str, int, None]
     method: str
-    params: t.List[t.Union[str, int, None]]
+    params: t.List[t.Any]
 
 
 class SearchResult(BaseModel):
@@ -54,64 +57,103 @@ class SearchResult(BaseModel):
 
 class DownloadItem(BaseModel):
     """
-        public sealed class HadoukenTorrent
+        InfoHash = Convert.ToString(item[0]),
+        State = ParseState(Convert.ToInt32(item[1])),
+        Name = Convert.ToString(item[2]),
+        TotalSize = Convert.ToInt64(item[3]),
+        Progress = Convert.ToDouble(item[4]),
+        DownloadedBytes = Convert.ToInt64(item[5]),
+        UploadedBytes = Convert.ToInt64(item[6]),
+        -
+        -
+        DownloadRate = Convert.ToInt64(item[9]),
+        Label = Convert.ToString(item[11]),
+        - x 10
+        Error = Convert.ToString(item[21]),
+        - x 5
+        SavePath = Convert.ToString(item[26])
+
         {
-            public string InfoHash { get; set; }
-            public double Progress { get; set; }
-            public string Name { get; set; }
-            public string Label { get; set; }
-            public string SavePath { get; set; }
-            public HadoukenTorrentState State { get; set; }
-            public bool IsFinished { get; set; }
-            public bool IsPaused { get; set; }
-            public bool IsSeeding { get; set; }
-            public long TotalSize { get; set; }
-            public long DownloadedBytes { get; set; }
-            public long UploadedBytes { get; set; }
-            public long DownloadRate { get; set; }
-            public string Error { get; set; }
-        }
-        public enum HadoukenTorrentState
-        {
-            Unknown = 0,
-            QueuedForChecking = 1,
-            CheckingFiles = 2,
-            DownloadingMetadata = 3,
-            Downloading = 4,
-            Finished = 5,
-            Seeding = 6,
-            Allocating = 7,
-            CheckingResumeData = 8,
-            Paused = 9
+            if ((state & 1) == 1)
+            {
+                return HadoukenTorrentState.Downloading;
+            }
+            else if ((state & 2) == 2)
+            {
+                return HadoukenTorrentState.CheckingFiles;
+            }
+            else if ((state & 32) == 32)
+            {
+                return HadoukenTorrentState.Paused;
+            }
+            else if ((state & 64) == 64)
+            {
+                return HadoukenTorrentState.QueuedForChecking;
+            }
+
+            return HadoukenTorrentState.Unknown;
         }
     """
 
     infoHash: str
-    Progress: float
-    Name: str
-    SavePath: str
-    State: int
-    IsFinished: bool
-    IsPaused: bool
-    IsSeeding: bool = False
-    TotalSize: int
-    DownloadedBytes: int
-    UploadedBytes: int = 0
-    DownloadRate: int
-    Error: str = ""
+    progress: float
+    name: str
+    label: str = ""
+    savePath: str
+    state: int
+    totalSize: int
+    downloadedBytes: int
+    uploadedBytes: int = 0
+    downloadRate: int
+    error: str = ""
 
     @classmethod
     def from_airi2(cls, item: Download) -> "DownloadItem":
-        state = {"paused": 9, "complete": 5}.get(item.status, 0)
-        return cls(
-            infoHash=item.gid,
-            Progress=item.progress,
-            Name=item.name,
-            SavePath=str(item.dir),
-            State=state,
-            IsFinished=state == 5,
-            IsPaused=state == 9,
-            TotalSize=item.total_length,
-            DownloadedBytes=sum(f.completed_length for f in item.files),
-            DownloadRate=item.download_speed,
+        state = {"paused": 32, "complete": 1, "active": 1}.get(item.status, 0)
+        info_hash = item.dir.parts[-1]
+        r = cls(
+            infoHash=info_hash,
+            progress=item.progress * 10,
+            name=item.name,
+            savePath=str(item.dir),
+            state=state,
+            totalSize=item.total_length,
+            downloadedBytes=sum(f.completed_length for f in item.files),
+            downloadRate=item.download_speed,
         )
+        logger.debug(r)
+        return r
+
+    def as_list(self):
+        # https://github.com/hadouken/hadouken/blob/36b48a96dca14d1031ef966d75a08dce96bc6f70/js/rpc/webui_list.js#L29
+        # https://github.com/Radarr/Radarr/blob/a19f0202b0cb89b0be67316f59f11fbb1c2d3e17/src/NzbDrone.Core/Download/Clients/Hadouken/HadoukenProxy.cs#L135-L145
+        return [
+            self.infoHash,
+            self.state,
+            self.name,
+            self.totalSize,
+            self.progress,
+            self.uploadedBytes,
+            self.downloadedBytes,
+            "this",
+            "is",
+            self.downloadRate,
+            "a",
+            self.label,
+            "stupid",
+            "data",
+            "s",
+            "t",
+            "r",
+            "u",
+            "c",
+            "t",
+            "u",
+            self.error,
+            1,
+            2,
+            3,
+            4,
+            self.savePath,
+        ]
+
