@@ -12,11 +12,11 @@ from plexapi.exceptions import NotFound
 from plexapi.video import Movie
 import aria2p
 
-from plexarr.utils import get_name_from_radarr
-from plexarr.models import AddTorrent
-from plexarr.models import SearchResult
-from plexarr.models import DownloadItem
-from plexarr.utils import get_servers_for_account
+from .utils import get_name_from_radarr
+from .models import AddTorrent
+from .models import SearchResult
+from .models import DownloadItem
+from .utils import get_servers_for_account
 
 
 app = FastAPI()
@@ -37,7 +37,7 @@ SERVER_CONNECTIONS = set()
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Plexarr"}
 
 
 @app.get("/servers")
@@ -132,7 +132,6 @@ async def search(
             server.connect()
             results = server.search(title)
         search_results.extend(results)
-
 
     for result in search_results:
         if isinstance(result, Movie):

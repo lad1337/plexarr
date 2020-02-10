@@ -5,7 +5,7 @@ description = "bridge between remote plex servers and radarr to get stuff"
 authors = ["Dennis Lutter <lad1337@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.7"
 fastapi = {extras = ["all"], version = "^0.46.0"}
 flake8 = "^3.7.9"
 furl = "^2.1.0"
